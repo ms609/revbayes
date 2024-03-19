@@ -167,11 +167,13 @@ void RbBitSet::flip(size_t i)
 
 void RbBitSet::flip()
 {
+    
     for (size_t i = 0; i < value.size(); i++)
     {
-        value[i] = ( value[i] == false );
-        num_set_bits += ( value[i] ? 1 : -1 );
+        value[i] = !value[i];
     }
+
+    num_set_bits = value.size() - num_set_bits;
 }
 
 size_t RbBitSet::getFirstSetBit( void ) const
