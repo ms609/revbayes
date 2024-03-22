@@ -1,26 +1,30 @@
-#include <float.h>
-#include <stddef.h>
+#include <cfloat>
+#include <cstddef>
 #include <algorithm>
 #include <cmath>
 #include <iosfwd>
 #include <string>
 #include <vector>
+#include <cassert>
 
+#include "AbstractBirthDeathProcess.h"
 #include "BirthDeathForwardSimulator.h"
-#include "DistributionExponential.h"
 #include "BirthDeathSamplingTreatmentProcess.h"
+#include "Clade.h"
+#include "DagNode.h"
+#include "DistributionExponential.h"
 #include "RandomNumberFactory.h"
 #include "RandomNumberGenerator.h"
 #include "RbConstants.h"
 #include "RbMathCombinatorialFunctions.h"
 #include "RbMathLogic.h"
-#include "AbstractBirthDeathProcess.h"
-#include "DagNode.h"
 #include "RbException.h"
+#include "RbSettings.h"
 #include "RbVector.h"
 #include "StartingTreeSimulator.h"
 #include "TopologyNode.h"
 #include "Tree.h"
+#include "TreeUtilities.h"
 #include "TypedDagNode.h"
 
 namespace RevBayesCore { class Taxon; }
@@ -112,25 +116,25 @@ BirthDeathSamplingTreatmentProcess::BirthDeathSamplingTreatmentProcess(const Typ
     addParameter( interval_times_global );
 
     heterogeneous_lambda = dynamic_cast<const TypedDagNode<RbVector<double> >*>(in_speciation);
-    homogeneous_lambda = dynamic_cast<const TypedDagNode<double >*>(in_speciation);
+    homogeneous_lambda   = dynamic_cast<const TypedDagNode<double >*>(in_speciation);
 
     addParameter( homogeneous_lambda );
     addParameter( heterogeneous_lambda );
 
     heterogeneous_mu = dynamic_cast<const TypedDagNode<RbVector<double> >*>(in_extinction);
-    homogeneous_mu = dynamic_cast<const TypedDagNode<double >*>(in_extinction);
+    homogeneous_mu   = dynamic_cast<const TypedDagNode<double >*>(in_extinction);
 
     addParameter( homogeneous_mu );
     addParameter( heterogeneous_mu );
 
     heterogeneous_phi = dynamic_cast<const TypedDagNode<RbVector<double> >*>(in_sampling);
-    homogeneous_phi = dynamic_cast<const TypedDagNode<double >*>(in_sampling);
+    homogeneous_phi   = dynamic_cast<const TypedDagNode<double >*>(in_sampling);
 
     addParameter( homogeneous_phi );
     addParameter( heterogeneous_phi );
 
     heterogeneous_r = dynamic_cast<const TypedDagNode<RbVector<double> >*>(in_treatment);
-    homogeneous_r = dynamic_cast<const TypedDagNode<double >*>(in_treatment);
+    homogeneous_r   = dynamic_cast<const TypedDagNode<double >*>(in_treatment);
 
     addParameter( homogeneous_r );
     addParameter( heterogeneous_r );
@@ -144,7 +148,7 @@ BirthDeathSamplingTreatmentProcess::BirthDeathSamplingTreatmentProcess(const Typ
     addParameter( heterogeneous_Mu );
 
     heterogeneous_Phi = dynamic_cast<const TypedDagNode<RbVector<double> >*>(in_event_sampling);
-    homogeneous_Phi = dynamic_cast<const TypedDagNode<double >*>(in_event_sampling);
+    homogeneous_Phi   = dynamic_cast<const TypedDagNode<double >*>(in_event_sampling);  
 
     addParameter( homogeneous_Phi );
     addParameter( heterogeneous_Phi );
@@ -161,15 +165,32 @@ BirthDeathSamplingTreatmentProcess::BirthDeathSamplingTreatmentProcess(const Typ
     prepareTimeline();
     prepareProbComputation();
 
-
-    // We employ a coalescent simulator to guarantee that the starting tree matches all time constraints
-    RbVector<Clade> constr;
-    StartingTreeSimulator simulator;
-    RevBayesCore::Tree *my_tree = simulator.simulateTree( taxa, constr );
-
-    // store the new value
     delete value;
-    value = my_tree;
+    
+    if (t != nullptr)
+    {
+        try
+        {
+            RevBayesCore::Tree *my_tree = TreeUtilities::startingTreeInitializer( *t, taxa );
+            value = my_tree->clone();
+        }
+        catch (RbException &e)
+        {
+            value = nullptr;
+            // The line above is to prevent a segfault when ~AbstractRootedTreeDistribution() tries to delete
+            // a nonexistent starting_tree
+            throw RbException( e.getMessage() );
+        }
+    }
+    else
+    {
+        RbVector<Clade> constr;
+        // We employ a coalescent simulator to guarantee that the starting tree matches all time constraints
+        StartingTreeSimulator simulator;
+        RevBayesCore::Tree *my_tree = simulator.simulateTree( taxa, constr );
+        // store the new value
+        value = my_tree;
+    }
 
     countAllNodes();
 
@@ -375,9 +396,9 @@ double BirthDeathSamplingTreatmentProcess::computeLnProbabilityTimes( void ) con
                 {
                     ln_sampling_event_prob += S_i * log(1 - r_event[i]);
                 }
-                if ( I_i > S_i )
-                {
-                    ln_sampling_event_prob += (I_i - S_i) * log(r_event[i] + (1 - r_event[i])*E_previous[i]);
+                if ( T_i > 0 )
+                { 
+                    ln_sampling_event_prob += T_i * log(r_event[i] + (1 - r_event[i])*E_previous[i]);
                 }
                 
             }
@@ -607,7 +628,7 @@ bool BirthDeathSamplingTreatmentProcess::countAllNodes(void) const
               int at_event = whichIntervalTime(t);
 
               // If this bifurcation is not at an event time (and specifically at an event time with Lambda[i] > 0), it's a serial bifurcation
-              if ( at_event == -1 )
+              if ( at_event == -1 || lambda_event[at_event] < DBL_EPSILON)
               {
                   serial_bifurcation_times.push_back(t);
               }
@@ -1466,7 +1487,15 @@ void BirthDeathSamplingTreatmentProcess::redrawValue( SimulationCondition condit
     {
         if ( starting_tree == NULL )
         {
-            simulateTree();
+            // SH 20221212: The simulateTree functions hangs in certain situations. It's more robust to use the coalescent simulator.
+//            simulateTree();
+            
+            RbVector<Clade> constr;
+            // We employ a coalescent simulator to guarantee that the starting tree matches all time constraints
+            StartingTreeSimulator simulator;
+            RevBayesCore::Tree *my_tree = simulator.simulateTree( taxa, constr );
+            // store the new value
+            value = my_tree;
         }
     }
     else if ( condition == SimulationCondition::VALIDATION )
@@ -1536,7 +1565,6 @@ double BirthDeathSamplingTreatmentProcess::simulateDivergenceTime(double origin,
 {
     // incorrect placeholder, there is no way to simulate an FBD tree consistent with fossil times, we use a coalescent simulator instead
 
-
     // Get the rng
     RandomNumberGenerator* rng = GLOBAL_RNG;
 
@@ -1547,35 +1575,41 @@ double BirthDeathSamplingTreatmentProcess::simulateDivergenceTime(double origin,
     double b = lambda[i];
     double d = mu[i];
     double p_e = phi_event[i];
+    double x = b - d;
 
+    // make sure age is not negative, otherwise function doesn't work
+    assert(age >= 0);
 
     // get a random draw
     double u = rng->uniform01();
 
     // compute the time for this draw
     double t = 0.0;
-    if ( b > d )
+    if ( x > 0 )
     {
         if( p_e > 0.0 )
         {
-            t = ( log( ( (b-d) / (1 - (u)*(1-((b-d)*exp((d-b)*age))/(p_e*b+(b*(1-p_e)-d)*exp((d-b)*age) ) ) ) - (b*(1-p_e)-d) ) / (p_e * b) ) )  /  (b-d);
+            t = ( log( ( x / (1 - (u)*(1-(x*exp((-x)*age))/(p_e*b+(b*(1-p_e)-d)*exp((-x)*age) ) ) ) - (b*(1-p_e)-d) ) / (p_e * b) ) )  /  x;
         }
         else
         {
-            t = log( 1 - u * (exp(age*(d-b)) - 1) / exp(age*(d-b)) ) / (b-d);
+            t = log( (1 - u) * exp(-x * age) + u) / x + age;
         }
     }
     else
     {
         if( p_e > 0.0 )
         {
-            t = ( log( ( (b-d) / (1 - (u)*(1-(b-d)/(p_e*b*exp((b-d)*age)+(b*(1-p_e)-d) ) ) ) - (b*(1-p_e)-d) ) / (p_e * b) ) )  /  (b-d);
+            t = ( log( ( x / (1 - (u)*(1-x/(p_e*b*exp(x*age)+(b*(1-p_e)-d) ) ) ) - (b*(1-p_e)-d) ) / (p_e * b) ) )  /  x;
         }
         else
         {
-            t = log( 1 - u * (1 - exp(age*(b-d)))  ) / (b-d);
+            t = log( 1 - u * (1 - exp(age*x))  ) / x;
         }
     }
+
+    // make sure the result is in the right range
+    assert(0 <= t and t <= age);
 
     return present + t;
 }
@@ -1589,36 +1623,52 @@ double BirthDeathSamplingTreatmentProcess::simulateDivergenceTime(double origin,
  * \return The diversity (number of species in the reconstructed tree).
  */
 int BirthDeathSamplingTreatmentProcess::survivors(double t) const
-{
-
-    const std::vector<TopologyNode*>& nodes = value->getNodes();
-
+{  
+    
     int survivors = 0;
-    for (std::vector<TopologyNode*>::const_iterator it = nodes.begin(); it != nodes.end(); ++it)
-    {
-        TopologyNode* n = *it;
-        double my_age = n->getAge();
 
-        // my age needs to be smaller that the requested time
-        if ( (my_age - t) < 1E-4 )
+    if ( use_origin )
+    {
+        if ( t > getOriginAge() )
         {
-            // my parents age needs to be larger/older than the requested time
-            if ( n->isRoot() == false && (n->getParent().getAge() - t) > 1E-4 )
-            {
-                survivors++;
-            }
+            return 0;
         }
-        else if ( (my_age - t) < -1E-4 )
+        survivors = 1;
+    } else {
+        if ( t > value->getRoot().getAge() )
         {
-            // my parents age needs to be larger/older than the requested time
-            if ( n->isRoot() == false && (n->getParent().getAge() - t) > -1E-4 )
-            {
-                survivors++;
-            }
+            return 0;
         }
-        
+        survivors = 2;
     }
 
+    for (size_t i=0; i<serial_bifurcation_times.size(); ++i) {
+        if (t < serial_bifurcation_times[i])
+        {
+            survivors++;
+        }
+    }
+
+    for (size_t i=0; i<serial_tip_ages.size(); ++i) {
+        if (t < serial_tip_ages[i])
+        {
+            survivors--;
+        }
+    }
+
+    for (size_t i=0; i<global_timeline.size(); ++i)
+    {   
+        size_t idx = global_timeline.size() - i - 1;
+        if ( global_timeline[idx] < t ) {
+            break;
+        } else if (global_timeline[idx] > t)
+        {   
+            // by ignoring time = t we implicitly count all tips at a time as survivors
+            // This is compatible with the logic in computing event-sampling probabilities but could be changed
+            survivors += (int)event_bifurcation_times[idx].size();
+            survivors -= (int)event_tip_ages[idx].size();
+        }
+    }
     return survivors;
 }
 

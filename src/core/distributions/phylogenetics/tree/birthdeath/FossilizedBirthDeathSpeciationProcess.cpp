@@ -73,9 +73,9 @@ FossilizedBirthDeathSpeciationProcess::FossilizedBirthDeathSpeciationProcess(con
     heterogeneous_beta               = NULL;
 
     heterogeneous_lambda_a = dynamic_cast<const TypedDagNode<RbVector<double> >*>(inlambda_a);
-    homogeneous_lambda_a = dynamic_cast<const TypedDagNode<double >*>(inlambda_a);
-    heterogeneous_beta = dynamic_cast<const TypedDagNode<RbVector<double> >*>(inbeta);
-    homogeneous_beta = dynamic_cast<const TypedDagNode<double >*>(inbeta);
+    homogeneous_lambda_a   = dynamic_cast<const TypedDagNode<double >*>(inlambda_a);
+    heterogeneous_beta     = dynamic_cast<const TypedDagNode<RbVector<double> >*>(inbeta);
+    homogeneous_beta       = dynamic_cast<const TypedDagNode<double >*>(inbeta);
 
     addParameter( homogeneous_lambda_a );
     addParameter( heterogeneous_lambda_a );
@@ -86,17 +86,17 @@ FossilizedBirthDeathSpeciationProcess::FossilizedBirthDeathSpeciationProcess(con
 
     RbException inconsistent_rates = RbException("Inconsistent number of rates in fossilized birth death process.");
 
-    if( heterogeneous_lambda_a != NULL )
+    if ( heterogeneous_lambda_a != NULL )
     {
-        if ( timeline == NULL ) throw(no_timeline_err);
+        if ( timeline == NULL ) throw no_timeline_err;
 
-        if ( heterogeneous_lambda_a->getValue().size() != num_intervals ) throw(inconsistent_rates);
+        if ( heterogeneous_lambda_a->getValue().size() != num_intervals ) throw inconsistent_rates;
     }
-    if( heterogeneous_beta != NULL )
+    if ( heterogeneous_beta != NULL )
     {
-        if ( timeline == NULL ) throw(no_timeline_err);
+        if ( timeline == NULL ) throw no_timeline_err;
 
-        if ( heterogeneous_beta->getValue().size() != num_intervals ) throw(inconsistent_rates);
+        if ( heterogeneous_beta->getValue().size() != num_intervals ) throw inconsistent_rates;
     }
 
     I             = std::vector<bool>(taxa.size(), false);
@@ -144,7 +144,7 @@ double FossilizedBirthDeathSpeciationProcess::computeLnProbabilityTimes( void ) 
 {
     double lnProb = 0.0;
 
-    for(size_t i = 0; i < taxa.size(); i++)
+    for (size_t i = 0; i < taxa.size(); i++)
     {
         // include the anagenetic speciation density for descendants of sampled ancestors
         if ( I[i] == true )
@@ -323,9 +323,7 @@ void FossilizedBirthDeathSpeciationProcess::simulateClade(std::vector<TopologyNo
 
     if( minimum_age > max_age )
     {
-        std::stringstream s;
-        s << "Tree age is " << max_age << " but minimum fossil origin is " << minimum_age;
-        throw(RbException(s.str()));
+        throw RbException() << "Tree age is " << max_age << " but minimum fossil origin is " << minimum_age;
     }
 
 
@@ -437,7 +435,8 @@ void FossilizedBirthDeathSpeciationProcess::simulateClade(std::vector<TopologyNo
 
         }
 
-        if ( n.size() > 2 && current_age >= age  ) throw RbException("Unexpected number of taxa (remaining #taxa was " + StringUtilities::toString(n.size()) + " and age was " + current_age + " with maximum age of " + age + ") in tree simulation");
+        if ( n.size() > 2 && current_age >= age  )
+            throw RbException() << "Unexpected number of taxa (remaining #taxa was " << n.size() << " and age was " << current_age << " with maximum age of " << age << ") in tree simulation";
 
     }
 
@@ -454,7 +453,7 @@ void FossilizedBirthDeathSpeciationProcess::simulateClade(std::vector<TopologyNo
         {
             if( first_occurrences[0] > age )
             {
-                throw(RbException("Cannot simulate clade of age " + StringUtilities::toString(age) + ", minimum age is " + StringUtilities::toString(minimum_age) ));
+                throw RbException() << "Cannot simulate clade of age " << age << ", minimum age is " << minimum_age;
             }
             else
             {
@@ -485,7 +484,7 @@ void FossilizedBirthDeathSpeciationProcess::simulateClade(std::vector<TopologyNo
     }
     else
     {
-        throw RbException("Unexpected number of taxa (" + StringUtilities::toString(n.size()) + ") in tree simulation");
+        throw RbException() << "Unexpected number of taxa (" << n.size() << ") in tree simulation";
     }
 
 
@@ -652,7 +651,7 @@ int FossilizedBirthDeathSpeciationProcess::updateStartEndTimes( const TopologyNo
  *
  *
  */
-void FossilizedBirthDeathSpeciationProcess::prepareProbComputation()
+void FossilizedBirthDeathSpeciationProcess::prepareProbComputation( void ) const 
 {
     AbstractFossilizedBirthDeathRangeProcess::prepareProbComputation();
 
