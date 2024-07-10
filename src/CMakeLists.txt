@@ -5,8 +5,12 @@ set(Boost_COMPILER "-vc143")
 set(BOOST_ROOT "C:/boost/boost_1_85_0/inst")
 set(BOOST_LIBRARYDIR "C:/boost/boost_1_85_0/")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")
 #set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+if(MSVC)
+  add_compile_options(/W4 /EHsc /bigobj)
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")
+endif()
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -31,7 +35,11 @@ if (CMAKE_SYSTEM_PROCESSOR MATCHES "^arm*|aarch64")
 else()
    #  We need to enable SSE3 instructions even in debug builds.
    #  Otherwise we get errors failing to inline __mm_hadd_pd( ) in PhyloCTMCSiteHomogeneousNucleotide.h
-   set(OPT_FLAGS "-msse -msse2 -msse3")
+  if(MSVC)
+    set(OPT_FLAGS "/O2 /DNDEBUG")
+  else()
+    set(OPT_FLAGS "-msse -msse2 -msse3 -O3 -DNDEBUG")
+  endif()
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES DEBUG)
