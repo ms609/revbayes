@@ -1,5 +1,14 @@
-cmake_minimum_required(VERSION 3.5.1)
+cmake_minimum_required(VERSION 3.30)
 project(RevBayes)
+
+set(Boost_COMPILER "-vc143")
+set(BOOST_ROOT "C:/boost/boost_1_85_0/inst")
+set(BOOST_LIBRARYDIR "C:/boost/boost_1_85_0/")
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")
+#set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Consider:
 # -Wno-sign-compare
@@ -164,6 +173,8 @@ MESSAGE("  Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}")
 MESSAGE("  Boost_LIBRARIES: ${Boost_LIBRARIES}")
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 
+include_directories(${Boost_INCLUDE_DIRS})
+
 # This will look for "generated_include_dirs.cmake" in the module path.
 include("generated_include_dirs")
 
@@ -225,11 +236,11 @@ else()
   add_executable(${RB_EXEC_NAME}   ${PROJECT_SOURCE_DIR}/revlanguage/main.cpp)
 endif()
 
-  target_link_libraries(${RB_EXEC_NAME} rb-parser rb-core rb-libs ${Boost_LIBRARIES} ${OPENLIBM} ${CMAKE_DL_LIBS})
+target_link_libraries(${RB_EXEC_NAME} rb-parser rb-core rb-libs ${Boost_LIBRARIES} ${OPENLIBM} ${CMAKE_DL_LIBS})
 target_link_libraries(${RB_EXEC_NAME}   ${RB_CMD_LIB} rb-parser rb-core rb-libs)
 # Link the target to other libraries.  Some variables can be empty.
 target_link_libraries(${RB_EXEC_NAME}   ${Boost_LIBRARIES} ${OPENLIBM} ${GTK_LIBRARIES} ${MPI_LIBRARIES})
 
-set_target_properties(${RB_EXEC_NAME}   PROPERTIES PREFIX "../")
+# set_target_properties(${RB_EXEC_NAME}   PROPERTIES PREFIX "../")
 
 install(TARGETS ${RB_EXEC_NAME} DESTINATION bin)
