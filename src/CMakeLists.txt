@@ -1,11 +1,16 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.15)
 project(RevBayes)
 
-set(Boost_COMPILER "-vc143")
-set(BOOST_ROOT "C:/boost/boost_1_85_0/inst")
-set(BOOST_LIBRARYDIR "C:/boost/boost_1_85_0/")
+set(BOOST_ROOT "C:/boost/boost_1_82_0/gcc")
 
-#set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+
+if(POLICY CMP0111)
+  cmake_policy(SET CMP0111 NEW)
+endif()
+if(POLICY CMP0144)
+  cmake_policy(SET CMP0144 NEW)
+endif()
+
 if(MSVC)
   add_compile_options(/W4 /EHsc /bigobj)
 else()
@@ -37,6 +42,15 @@ else()
    #  Otherwise we get errors failing to inline __mm_hadd_pd( ) in PhyloCTMCSiteHomogeneousNucleotide.h
   if(MSVC)
     set(OPT_FLAGS "/O2 /DNDEBUG")
+    # Unreferenced parameters
+    add_compile_options(/wd4100)
+    # std::streamsize to long
+    add_compile_options(/wd4244)
+    # size_t to long
+    add_compile_options(/wd4267)
+
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+    add_definitions(-D_SCL_SECURE_NO_WARNINGS)
   else()
     set(OPT_FLAGS "-msse -msse2 -msse3 -O3 -DNDEBUG")
   endif()
@@ -128,59 +142,43 @@ if (BOOST_ROOT OR BOOST_INCLUDEDIR OR BOOST_LIBRARYDIR OR DEFINED ENV{BOOST_ROOT
   set(Boost_NO_WARN_NEW_VERSION ON)
 endif()
 
-# Use the OLD way of looking for Boost
-# The NEW way only respects BOOST_ROOT, not these more-specific variables.
-if (BOOST_INCLUDEDIR OR BOOST_LIBRARYDIR OR DEFINED ENV{BOOST_INCLUDEDIR} OR DEFINED ENV{BOOST_LIBRARYDIR})
-  # Ignore cmake boost variables
-  set(Boost_NO_BOOST_CMAKE ON)
-endif()
-
-# Report the options that the control how we are looking for boost
-MESSAGE("Boost location hints:")
-if (BOOST_ROOT)
-  MESSAGE("  BOOST_ROOT: ${BOOST_ROOT}")
-endif()
-if (DEFINED ENV{BOOST_ROOT})
-  MESSAGE("  ENV{BOOST_ROOT}: $ENV{BOOST_ROOT}")
-endif()
-if (NOT DEFINED BOOST_ROOT AND NOT DEFINED ENV{BOOST_ROOT})
-  MESSAGE("  BOOST_ROOT not set")
-endif()
-if (BOOST_INCLUDEDIR)
-  MESSAGE("  BOOST_INCLUDEDIR: ${BOOST_INCLUDEDIR}")
-endif()
-if (DEFINED ENV{BOOST_INCLUDEDIR})
-  MESSAGE("  ENV{BOOST_INCLUDEDIR}: $ENV{BOOST_INCLUDEDIR}")
-endif()
-if (BOOST_LIBRARYDIR)
-  MESSAGE("  BOOST_LIBRARYDIR: ${BOOST_LIBRARYDIR}")
-endif()
-if (DEFINED ENV{BOOST_LIBRARYDIR})
-  MESSAGE("  ENV{BOOST_LIBRARYDIR}: $ENV{BOOST_LIBRARYDIR}")
-endif()
-
 set(Boost_USE_MULTITHREADED ON)
 if ("${STATIC_BOOST}" STREQUAL "ON")
 	MESSAGE("Static linking Boost")
 	set(Boost_USE_STATIC_LIBS ON)
 endif()
 
+# Suppress find_packages warning
+if(POLICY CMP0144)
+  cmake_policy(SET CMP0144 OLD)
+endif()
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
+
 MESSAGE("Searching for BOOST:")
 find_package(Boost
-1.71.0
-COMPONENTS regex
+1.82.0
+REQUIRED
+COMPONENTS 
+regex
 program_options
 thread
 system
 filesystem
 date_time
-serialization REQUIRED)
+serialization
+)
 MESSAGE("Boost configuration results:")
-MESSAGE("  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIR}")
+MESSAGE("  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 MESSAGE("  Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}")
 MESSAGE("  Boost_LIBRARIES: ${Boost_LIBRARIES}")
-LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
+MESSAGE("  Boost_FILESYSTEM_LIBRARY: ${Boost_FILESYSTEM_LIBRARY}")
+MESSAGE("  Boost_SYSTEM_LIBRARY: ${Boost_SYSTEM_LIBRARY}")
+MESSAGE("  Boost_HEADERS_LIBRARY: ${Boost_HEADERS_LIBRARY}")
+LINK_DIRECTORIES(${Boost_LIBRARY_DIRS} ${Boost_LIBRARIES})
 
+# Tell compiler where to find header files for boost libraries
 include_directories(${Boost_INCLUDE_DIRS})
 
 # This will look for "generated_include_dirs.cmake" in the module path.
@@ -244,10 +242,18 @@ else()
   add_executable(${RB_EXEC_NAME}   ${PROJECT_SOURCE_DIR}/revlanguage/main.cpp)
 endif()
 
-target_link_libraries(${RB_EXEC_NAME} rb-parser rb-core rb-libs ${Boost_LIBRARIES} ${OPENLIBM} ${CMAKE_DL_LIBS})
-target_link_libraries(${RB_EXEC_NAME}   ${RB_CMD_LIB} rb-parser rb-core rb-libs)
-# Link the target to other libraries.  Some variables can be empty.
-target_link_libraries(${RB_EXEC_NAME}   ${Boost_LIBRARIES} ${OPENLIBM} ${GTK_LIBRARIES} ${MPI_LIBRARIES})
+# target_link_libraries will overwrite previous values, so should only be called once.
+target_link_libraries(${RB_EXEC_NAME}
+  ${RB_CMD_LIB}
+  rb-parser
+  rb-core
+  rb-libs
+  ${Boost_LIBRARIES}
+  ${OPENLIBM}
+  ${CMAKE_DL_LIBS}
+  ${GTK_LIBRARIES}
+  ${MPI_LIBRARIES}
+)
 
 # set_target_properties(${RB_EXEC_NAME}   PROPERTIES PREFIX "../")
 
