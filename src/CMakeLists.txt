@@ -178,9 +178,6 @@ MESSAGE("  Boost_SYSTEM_LIBRARY: ${Boost_SYSTEM_LIBRARY}")
 MESSAGE("  Boost_HEADERS_LIBRARY: ${Boost_HEADERS_LIBRARY}")
 LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 
-# Tell compiler where to find header files for boost libraries
-include_directories(${Boost_INCLUDE_DIRS})
-
 # This will look for "generated_include_dirs.cmake" in the module path.
 include("generated_include_dirs")
 
