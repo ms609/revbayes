@@ -47,3 +47,8 @@ revbayes.code-workspace
 *#
 .#*
 /build
+*.obj
+*.tlog
+/src/revlanguage/CMakeFiles
+*.filters
+*.vcxproj
