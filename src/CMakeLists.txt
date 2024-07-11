@@ -176,7 +176,7 @@ MESSAGE("  Boost_LIBRARIES: ${Boost_LIBRARIES}")
 MESSAGE("  Boost_FILESYSTEM_LIBRARY: ${Boost_FILESYSTEM_LIBRARY}")
 MESSAGE("  Boost_SYSTEM_LIBRARY: ${Boost_SYSTEM_LIBRARY}")
 MESSAGE("  Boost_HEADERS_LIBRARY: ${Boost_HEADERS_LIBRARY}")
-LINK_DIRECTORIES(${Boost_LIBRARY_DIRS} ${Boost_LIBRARIES})
+LINK_DIRECTORIES(${Boost_LIBRARY_DIRS})
 
 # Tell compiler where to find header files for boost libraries
 include_directories(${Boost_INCLUDE_DIRS})
@@ -254,7 +254,5 @@ target_link_libraries(${RB_EXEC_NAME}
   ${GTK_LIBRARIES}
   ${MPI_LIBRARIES}
 )
-
-# set_target_properties(${RB_EXEC_NAME}   PROPERTIES PREFIX "../")
 
 install(TARGETS ${RB_EXEC_NAME} DESTINATION bin)
